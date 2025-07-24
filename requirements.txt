@@ -7,3 +7,4 @@ scikit-image==0.22.0
 scipy==1.11.4
 matplotlib==3.8.2
 tifffile==2023.9.26
+pyvips==2.2.1

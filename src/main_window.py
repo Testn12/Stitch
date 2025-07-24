@@ -569,28 +569,80 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.Yes:
             self.fragment_manager.reset_all_transforms()
             
-    def export_results(self):
-        """Export both image and metadata"""
-        self.export_image()
-        self.export_metadata()
+    def show_export_dialog(self):
+        """Show the export dialog with format and level selection"""
+        fragments = self.fragment_manager.get_visible_fragments()
+        if not fragments:
+            QMessageBox.information(self, "No Fragments", "No visible fragments to export.")
+            return
+            
+        dialog = ExportDialog(fragments, self)
+        if dialog.exec() == ExportDialog.DialogCode.Accepted:
+            settings = dialog.get_export_settings()
+            self.perform_export(settings)
+    
+    def perform_export(self, settings: dict):
+        """Perform export based on settings from dialog"""
+        try:
+            if settings['format'] == 'png':
+                # Standard PNG export
+                self.export_png_image(settings['output_path'], settings['quality'])
+            elif settings['format'] == 'pyramidal_tiff':
+                # Pyramidal TIFF export
+                self.export_pyramidal_tiff(settings)
+            else:
+                QMessageBox.warning(self, "Error", f"Unsupported export format: {settings['format']}")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Export failed: {str(e)}")
+    
+    def export_pyramidal_tiff(self, settings: dict):
+        """Export pyramidal TIFF with progress tracking"""
+        fragments = self.fragment_manager.get_visible_fragments()
         
-    def export_image(self):
-        """Export the composite image"""
-        file_dialog = QFileDialog()
-        file_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-        file_dialog.setNameFilter("Image files (*.tiff *.tif *.png)")
-        file_dialog.setDefaultSuffix("tiff")
+        # Show progress
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setRange(0, 100)
         
-        if file_dialog.exec():
-            file_path = file_dialog.selectedFiles()[0]
-            try:
-                self.export_manager.export_composite_image(
-                    self.fragment_manager.get_all_fragments(),
-                    file_path
-                )
-                self.status_bar.showMessage(f"Image exported to {file_path}", 3000)
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Export failed: {str(e)}")
+        def progress_callback(progress: int, message: str):
+            self.progress_bar.setValue(progress)
+            self.status_bar.showMessage(message)
+            QApplication.processEvents()  # Allow UI updates
+        
+        try:
+            success = self.pyramidal_exporter.export_pyramidal_tiff(
+                fragments=fragments,
+                output_path=settings['output_path'],
+                selected_levels=settings['selected_levels'],
+                compression=settings['compression'],
+                progress_callback=progress_callback
+            )
+            
+            if success:
+                self.status_bar.showMessage(f"Pyramidal TIFF exported successfully to {settings['output_path']}", 5000)
+                QMessageBox.information(self, "Export Complete", 
+                                      f"Pyramidal TIFF exported successfully!\n\nFile: {settings['output_path']}\nLevels: {settings['selected_levels']}")
+            else:
+                QMessageBox.critical(self, "Export Failed", "Pyramidal TIFF export failed. Check the logs for details.")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Pyramidal TIFF export failed: {str(e)}")
+        finally:
+            self.progress_bar.setVisible(False)
+        
+    def export_png_image(self, output_path: str, quality: int):
+        """Export standard PNG image"""
+        try:
+            self.export_manager.export_composite_image(
+                self.fragment_manager.get_visible_fragments(),
+                output_path,
+                format='png',
+                quality=quality
+            )
+            self.status_bar.showMessage(f"PNG image exported to {output_path}", 3000)
+            QMessageBox.information(self, "Export Complete", f"PNG image exported successfully to {output_path}")
+        except Exception as e:
+            raise RuntimeError(f"PNG export failed: {str(e)}")
                 
     def export_metadata(self):
         """Export fragment metadata"""

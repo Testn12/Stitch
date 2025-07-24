@@ -80,27 +80,30 @@ class ImageLoader:
     def _load_tiff_image(self, file_path: str, level: int = 7) -> np.ndarray:
         """Load TIFF image using OpenSlide, handling both standard and pyramidal TIFFs"""
         try:
-            # Try OpenSlide first (designed for whole slide images)
-            slide = openslide.OpenSlide(file_path)
-            
-            # Check if the requested level exists
-            max_level = slide.level_count - 1
-            if level > max_level:
-                print(f"Requested level {level} exceeds maximum level {max_level}, using level {max_level}")
-                level = max_level
-            
-            # Get the dimensions of the slide at the specified level
-            level_dimensions = slide.level_dimensions[level]
-            
-            # Read the entire slide at the specified level
-            # read_region(location, level, size) - location is (x, y) in level 0 coordinates
-            # For the entire slide, we start at (0, 0) and read the full dimensions
-            image = slide.read_region((0, 0), level, level_dimensions)
-            
-            # Convert PIL Image to numpy array
-            image_array = np.array(image)
-            
-            slide.close()
+            if OPENSLIDE_AVAILABLE:
+                # Try OpenSlide first (designed for whole slide images)
+                slide = openslide.OpenSlide(file_path)
+                
+                # Check if the requested level exists
+                max_level = slide.level_count - 1
+                if level > max_level:
+                    print(f"Requested level {level} exceeds maximum level {max_level}, using level {max_level}")
+                    level = max_level
+                
+                # Get the dimensions of the slide at the specified level
+                level_dimensions = slide.level_dimensions[level]
+                
+                # Read the entire slide at the specified level
+                # read_region(location, level, size) - location is (x, y) in level 0 coordinates
+                # For the entire slide, we start at (0, 0) and read the full dimensions
+                image = slide.read_region((0, 0), level, level_dimensions)
+                
+                # Convert PIL Image to numpy array
+                image_array = np.array(image)
+                
+                slide.close()
+            else:
+                raise ImportError("OpenSlide not available")
             
         except Exception as e:
             print(f"OpenSlide failed with error: {e}")
@@ -216,3 +219,68 @@ class ImageLoader:
                 return False
         
         return False
+    
+    def get_pyramid_info(self, file_path: str) -> dict:
+        """Get detailed pyramid information for a file"""
+        info = {
+            'levels': [],
+            'level_dimensions': [],
+            'level_downsamples': [],
+            'has_pyramid': False
+        }
+        
+        try:
+            if OPENSLIDE_AVAILABLE and self._is_openslide_compatible(file_path):
+                slide = openslide.OpenSlide(file_path)
+                
+                info['levels'] = list(range(slide.level_count))
+                info['level_dimensions'] = slide.level_dimensions
+                info['level_downsamples'] = slide.level_downsamples
+                info['has_pyramid'] = slide.level_count > 1
+                
+                slide.close()
+            else:
+                # Fallback to tifffile
+                import tifffile
+                with tifffile.TiffFile(file_path) as tif:
+                    if hasattr(tif, 'series') and tif.series:
+                        series = tif.series[0]
+                        if hasattr(series, 'levels') and len(series.levels) > 1:
+                            info['levels'] = list(range(len(series.levels)))
+                            info['level_dimensions'] = [(level.shape[1], level.shape[0]) for level in series.levels]
+                            info['level_downsamples'] = [1.0 * (2 ** i) for i in range(len(series.levels))]
+                            info['has_pyramid'] = True
+                        else:
+                            # Single level
+                            info['levels'] = [0]
+                            info['level_dimensions'] = [(tif.pages[0].shape[1], tif.pages[0].shape[0])]
+                            info['level_downsamples'] = [1.0]
+                            info['has_pyramid'] = False
+                    else:
+                        # Single level fallback
+                        info['levels'] = [0]
+                        info['level_dimensions'] = [(tif.pages[0].shape[1], tif.pages[0].shape[0])]
+                        info['level_downsamples'] = [1.0]
+                        info['has_pyramid'] = False
+                        
+        except Exception as e:
+            print(f"Warning: Could not get pyramid info for {file_path}: {e}")
+            # Return minimal info
+            info['levels'] = [0]
+            info['level_dimensions'] = [(0, 0)]
+            info['level_downsamples'] = [1.0]
+            info['has_pyramid'] = False
+            
+        return info
+    
+    def _is_openslide_compatible(self, file_path: str) -> bool:
+        """Check if file is compatible with OpenSlide"""
+        if not OPENSLIDE_AVAILABLE:
+            return False
+            
+        try:
+            # Try to detect if OpenSlide can handle this file
+            openslide.OpenSlide.detect_format(file_path)
+            return True
+        except:
+            return False

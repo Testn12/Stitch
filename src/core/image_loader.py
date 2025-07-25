@@ -46,7 +46,6 @@ class ImageLoader:
             if file_ext == '.svs' and OPENSLIDE_AVAILABLE:
                 return self._load_openslide_image(file_path, level)
             elif file_ext in {'.tiff', '.tif'}:
-                print("Hello, I am here")
                 return self._load_tiff_image(file_path)
             else:
                 return self._load_standard_image(file_path)
@@ -87,7 +86,6 @@ class ImageLoader:
                 # Check if the requested level exists
                 max_level = slide.level_count - 1
                 if level > max_level:
-                    print(f"Requested level {level} exceeds maximum level {max_level}, using level {max_level}")
                     level = max_level
                 
                 # Get the dimensions of the slide at the specified level
@@ -106,8 +104,6 @@ class ImageLoader:
                 raise ImportError("OpenSlide not available")
             
         except Exception as e:
-            print(f"OpenSlide failed with error: {e}")
-            print("Falling back to PIL...")
             
             # Fallback to PIL
             try:
@@ -120,7 +116,6 @@ class ImageLoader:
                     image = image.convert('RGBA')
                 image_array = np.array(image)
             except Exception as pil_error:
-                print(f"PIL also failed: {pil_error}")
                 raise
         
         # Ensure RGBA format

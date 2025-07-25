@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                             QMessageBox, QProgressBar, QLabel)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QKeySequence
+from PyQt6.QtWidgets import QApplication
 
 from .core.fragment_manager import FragmentManager
 from .core.image_loader import ImageLoader
@@ -19,6 +20,8 @@ from .ui.control_panel import ControlPanel
 from .ui.fragment_list import FragmentListWidget
 from .ui.toolbar import ToolbarWidget
 from .ui.point_input_dialog import PointInputDialog
+from .ui.export_dialog import ExportDialog
+from .utils.pyramidal_exporter import PyramidalExporter
 from .utils.export_manager import ExportManager
 from .algorithms.rigid_stitching import RigidStitchingAlgorithm
 
@@ -34,6 +37,7 @@ class MainWindow(QMainWindow):
         self.point_manager = PointManager()
         self.image_loader = ImageLoader()
         self.export_manager = ExportManager()
+        self.pyramidal_exporter = PyramidalExporter()
         self.stitching_algorithm = RigidStitchingAlgorithm()
         
         self.setup_ui()
@@ -91,7 +95,7 @@ class MainWindow(QMainWindow):
         """Setup signal-slot connections"""
         # Toolbar connections
         self.toolbar.load_images_requested.connect(self.load_images)
-        self.toolbar.export_requested.connect(self.export_results)
+        self.toolbar.export_requested.connect(self.show_export_dialog)
         self.toolbar.stitch_requested.connect(self.perform_stitching)
         self.toolbar.reset_requested.connect(self.reset_fragments)
         self.toolbar.delete_requested.connect(self.delete_selected_fragment)
@@ -195,7 +199,7 @@ class MainWindow(QMainWindow):
         
         export_image_action = QAction('Export &Image...', self)
         export_image_action.setShortcut(QKeySequence('Ctrl+E'))
-        export_image_action.triggered.connect(self.export_image)
+        export_image_action.triggered.connect(self.show_export_dialog)
         file_menu.addAction(export_image_action)
         
         export_metadata_action = QAction('Export &Metadata...', self)

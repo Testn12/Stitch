@@ -9,6 +9,9 @@ import logging
 import tempfile
 import shutil
 
+# Import QApplication for processEvents
+from PyQt6.QtWidgets import QApplication
+
 try:
     import openslide
     OPENSLIDE_AVAILABLE = True

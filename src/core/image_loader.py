@@ -81,7 +81,11 @@ class ImageLoader:
         try:
             if OPENSLIDE_AVAILABLE:
                 # Try OpenSlide first (designed for whole slide images)
-                slide = openslide.OpenSlide(file_path)
+                try:
+                    slide = openslide.OpenSlide(file_path)
+                except openslide.OpenSlideError:
+                    # OpenSlide can't handle this file, fall back to PIL/tifffile
+                    raise ImportError("OpenSlide cannot handle this file")
                 
                 # Check if the requested level exists
                 max_level = slide.level_count - 1
@@ -100,13 +104,17 @@ class ImageLoader:
                 image_array = np.array(image)
                 
                 slide.close()
+                
+                print(f"Loaded TIFF with OpenSlide at level {level}: {image_array.shape}")
             else:
                 raise ImportError("OpenSlide not available")
             
         except Exception as e:
+            print(f"OpenSlide failed for {file_path}: {e}")
             
             # Fallback to PIL
             try:
+                print(f"Falling back to PIL for {file_path}")
                 image = Image.open(file_path)
                 # Preserve alpha channel if present
                 if image.mode in ['RGBA', 'LA']:
@@ -115,7 +123,9 @@ class ImageLoader:
                     # Add alpha channel
                     image = image.convert('RGBA')
                 image_array = np.array(image)
+                print(f"Loaded TIFF with PIL: {image_array.shape}")
             except Exception as pil_error:
+                print(f"PIL also failed: {pil_error}")
                 raise
         
         # Ensure RGBA format

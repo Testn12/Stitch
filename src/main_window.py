@@ -95,7 +95,7 @@ class MainWindow(QMainWindow):
         """Setup signal-slot connections"""
         # Toolbar connections
         self.toolbar.load_images_requested.connect(self.load_images)
-        self.toolbar.export_requested.connect(self.show_export_dialog)
+        self.toolbar.export_requested.connect(self.export_results)
         self.toolbar.stitch_requested.connect(self.perform_stitching)
         self.toolbar.reset_requested.connect(self.reset_fragments)
         self.toolbar.delete_requested.connect(self.delete_selected_fragment)
@@ -199,7 +199,7 @@ class MainWindow(QMainWindow):
         
         export_image_action = QAction('Export &Image...', self)
         export_image_action.setShortcut(QKeySequence('Ctrl+E'))
-        export_image_action.triggered.connect(self.show_export_dialog)
+        export_image_action.triggered.connect(self.export_results)
         file_menu.addAction(export_image_action)
         
         export_metadata_action = QAction('Export &Metadata...', self)
@@ -342,6 +342,10 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.Yes:
             self.point_manager.clear_all_points()
             self.status_bar.showMessage("All labeled points cleared", 2000)
+        
+    def export_results(self):
+        """Export results - show export dialog"""
+        self.show_export_dialog()
         
     def toggle_rectangle_selection(self, enabled: bool):
         """Toggle rectangle selection mode"""

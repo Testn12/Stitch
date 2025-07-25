@@ -24,6 +24,12 @@ class ExportDialog(QDialog):
         self.export_format = 'png'  # Default to PNG
         self.output_path = ""
         
+        # Initialize attributes
+        self.level_checkboxes = {}
+        self.common_levels = []
+        self.all_available_levels = []
+        self.fragment_levels = {}
+        
         self.setup_ui()
         self.analyze_pyramid_levels()
         
@@ -174,6 +180,8 @@ class ExportDialog(QDialog):
         if not self.fragments:
             return
             
+        print(f"Analyzing pyramid levels for {len(self.fragments)} fragments")
+        
         # Get pyramid info for each fragment
         fragment_levels = {}
         
@@ -185,11 +193,13 @@ class ExportDialog(QDialog):
                 # Get pyramid levels from the original file
                 levels = self.get_pyramid_levels(fragment.file_path)
                 fragment_levels[fragment.id] = levels
+                print(f"Fragment {fragment.name}: levels {levels}")
             except Exception as e:
                 print(f"Warning: Could not analyze levels for {fragment.name}: {e}")
                 continue
         
         if not fragment_levels:
+            print("No fragment levels found")
             return
             
         # Find common levels (levels that exist in ALL fragments)
@@ -202,6 +212,9 @@ class ExportDialog(QDialog):
             self.common_levels = sorted(list(common_levels))
             self.all_available_levels = sorted(list(set().union(*all_levels)))
             self.fragment_levels = fragment_levels
+            
+            print(f"Common levels: {self.common_levels}")
+            print(f"All available levels: {self.all_available_levels}")
         else:
             self.common_levels = []
             self.all_available_levels = []
@@ -212,6 +225,7 @@ class ExportDialog(QDialog):
     def get_pyramid_levels(self, file_path: str) -> List[int]:
         """Get available pyramid levels from a TIFF file"""
         try:
+            # Try OpenSlide first
             import openslide
             slide = openslide.OpenSlide(file_path)
             levels = list(range(slide.level_count))
